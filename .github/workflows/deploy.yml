@@ -28,7 +28,7 @@ jobs:
       - run: npm run audit:prod
       - run: npm test
       - name: Install Chrome for end-to-end tests
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
         id: chrome
       - name: Build under a repo subpath and run end-to-end tests
         run: npm run test:e2e
