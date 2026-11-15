@@ -122,3 +122,12 @@ describe('PPTX merged cells round trip', () => {
     const back = await parsePptx(toBuf(u8)); expect(back.deck.slides[0].objects.find((o) => o.type === 'table').merges).toEqual([{ r: 0, c: 0, rs: 2, cs: 2 }]);
   });
 });
+
+describe('PPTX master footer', () => {
+  it('flattens the footer and slide number into each slide (not the first when hidden)', async () => {
+    let d = ops.setMaster(createDeck(), { showFooter: true, footerText: 'Footer Co', showNumber: true }); d = ops.addSlide(d, 0, 'blank');
+    const zip = await JSZip.loadAsync(await buildPptx(d, providers));
+    const s1 = await zip.file('ppt/slides/slide1.xml').async('string'), s2 = await zip.file('ppt/slides/slide2.xml').async('string');
+    expect(s1).not.toContain('Footer Co'); expect(s2).toContain('Footer Co'); expect(s2).toContain('>2<');
+  });
+});

@@ -28,6 +28,10 @@ export default function PresenterView({ id }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   useEffect(() => { const t = setInterval(() => { if (running) setElapsed(acc.current + Date.now() - base.current); }, 500); return () => clearInterval(t); }, [running]);
+  // per-slide timer for rehearsal: resets when the slide changes, pauses with the main timer
+  const [slideMs, setSlideMs] = useState(0); const sl = useRef({ pos: -1, ms: 0, t: Date.now() });
+  useEffect(() => { sl.current = { pos, ms: 0, t: Date.now() }; setSlideMs(0); }, [pos]);
+  useEffect(() => { const t = setInterval(() => { const now = Date.now(); if (running) { sl.current.ms += now - sl.current.t; setSlideMs(sl.current.ms); } sl.current.t = now; }, 500); return () => clearInterval(t); }, [running]);
   const toggle = () => { if (running) { acc.current += Date.now() - base.current; setRunning(false); } else { base.current = Date.now(); setRunning(true); } };
   const reset = () => { acc.current = 0; base.current = Date.now(); setElapsed(0); };
   const cmd = (c, extra) => ch.current && ch.current.postMessage({ type: 'cmd', cmd: c, ...extra });
@@ -44,6 +48,7 @@ export default function PresenterView({ id }) {
       <h1 className="sr-only">Presenter view</h1>
       <div className="pv-bar"><span className="pv-timer" role="timer" aria-label="Elapsed time" data-testid="pv-timer">{fmt(elapsed)}</span>
         <button type="button" className="btn" onClick={toggle}>{running ? 'Pause' : 'Resume'}</button><button type="button" className="btn" onClick={reset}>Reset timer</button>
+        <span className={'pv-slide-timer' + (cur.s.targetSec && slideMs > cur.s.targetSec * 1000 ? ' over' : '')} data-testid="pv-slide-timer" role="timer" aria-label="Time on this slide">{fmt(slideMs)}{cur.s.targetSec ? ' / ' + fmt(cur.s.targetSec * 1000) : ''}{cur.s.targetSec && slideMs > cur.s.targetSec * 1000 ? ' · over target' : ''}</span>
         <span className="grow" /><span data-testid="pv-pos" role="status">Slide {cur.i + 1} of {deck.slides.length}</span>
         <button type="button" className="btn" onClick={() => cmd('prev')}>◀ Previous</button><button type="button" className="btn primary" onClick={() => cmd('next')}>Next ▶</button>
         <button type="button" className="btn" onClick={() => cmd('black')}>Black</button><button type="button" className="btn" onClick={() => cmd('white')}>White</button></div>

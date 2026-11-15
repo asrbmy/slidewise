@@ -158,3 +158,24 @@ describe('chart options', () => {
     expect(a.stacked).toBe(true); expect(a.area).toBe(false); expect(b.stacked).toBe(false); expect(typeof b.area).toBe('boolean');
   });
 });
+
+describe('rehearsal target', () => {
+  it('is clamped to 0..3600 whole seconds and defaults to 0', () => {
+    let d = createDeck(); d = ops.updateSlide(d, d.slides[0].id, { targetSec: 99999 });
+    expect(validateDeck(JSON.parse(JSON.stringify(d))).slides[0].targetSec).toBe(3600);
+    d = ops.updateSlide(d, d.slides[0].id, { targetSec: 12.6 }); expect(validateDeck(JSON.parse(JSON.stringify(d))).slides[0].targetSec).toBe(13);
+    const raw = JSON.parse(JSON.stringify(createDeck())); delete raw.slides[0].targetSec; expect(validateDeck(raw).slides[0].targetSec).toBe(0);
+  });
+});
+
+describe('chart kinds and labels', () => {
+  it('accepts scatter, keeps labels/axis titles, and caps title length', () => {
+    let d = createDeck(); d = ops.addObjects(d, d.slides[0].id, [createChart('scatter', { labels: true, xTitle: 'Time', yTitle: 'Speed', categories: ['1', '2.5', '4'], series: [{ name: 'A', values: [3, 5, 4] }] })]);
+    const o = validateDeck(JSON.parse(JSON.stringify(d))).slides[0].objects.find((x) => x.type === 'chart');
+    expect(o.kind).toBe('scatter'); expect(o.labels).toBe(true); expect([o.xTitle, o.yTitle]).toEqual(['Time', 'Speed']); expect(o.categories).toEqual(['1', '2.5', '4']);
+  });
+  it('rejects unknown chart kinds', () => {
+    let d = createDeck(); d = ops.addObjects(d, d.slides[0].id, [createChart('bar', { kind: 'radar' })]);
+    expect(() => validateDeck(JSON.parse(JSON.stringify(d)))).toThrow(ValidationError);
+  });
+});

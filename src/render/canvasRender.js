@@ -1,3 +1,4 @@
+import { masterObjects } from '../model/master.js';
 import { mergeMap } from '../model/tableMerge.js';
 import { layoutText, fontString } from './textLayout.js';
 import { resolveColor, slideBackground, seriesColor, fontStack } from './theme.js';
@@ -180,6 +181,12 @@ function drawChart(ctx, o, env) {
     for (const it of legendItems) { ctx.fillStyle = it.color; ctx.fillRect(lx, ly - sw / 2, sw, sw); ctx.fillStyle = text; ctx.fillText(it.name, lx + sw + gap, ly); lx += sw + gap + measure(ctx.font, it.name) + fs; }
     bottom -= fs * 1.8;
   }
+  let leftPad = 0;
+  if (o.kind !== 'pie') {
+    if (o.xTitle) { ctx.font = font(false); ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(o.xTitle, w / 2, bottom, w - 12); bottom -= fs * 1.5; }
+    if (o.yTitle) { leftPad = fs * 1.6; ctx.save(); ctx.translate(fs * 0.9, top + (bottom - top) / 2); ctx.rotate(-Math.PI / 2); ctx.font = font(false); ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(o.yTitle, 0, 0, Math.max(20, bottom - top)); ctx.restore(); }
+  }
+  const dataLabel = (v, x, y, base = 'bottom') => { ctx.save(); ctx.font = `${fs * 0.85}px ${fontStack(theme, '@body')}`; ctx.fillStyle = text; ctx.textAlign = 'center'; ctx.textBaseline = base; ctx.fillText(String(+Number(v).toFixed(2)), x, y); ctx.restore(); };
   if (o.kind === 'pie') {
     const vals = (o.series[0] ? o.series[0].values : []).map((v) => Math.max(0, v)), total = vals.reduce((a, b) => a + b, 0);
     const r = Math.max(10, Math.min(w, bottom - top) / 2 - 8), cx = w / 2, cy = top + (bottom - top) / 2;
@@ -195,6 +202,24 @@ function drawChart(ctx, o, env) {
     }
     return;
   }
+  if (o.kind === 'scatter') {
+    const xs = o.categories.map((cat, i) => { const n = parseFloat(cat); return Number.isFinite(n) ? n : i + 1; });
+    const minX = Math.min(0, ...xs) < 0 ? -niceMax(-Math.min(...xs)) : 0, maxX = niceMax(Math.max(0, ...xs));
+    const ally = o.series.flatMap((s) => s.values);
+    const minY = Math.min(0, ...ally) < 0 ? -niceMax(-Math.min(...ally)) : 0, maxY = niceMax(Math.max(0, ...ally));
+    ctx.font = font(false);
+    const lw = Math.max(...[minY, maxY].map((v) => measure(ctx.font, String(v)))) + 8;
+    const sx0 = lw + 8 + leftPad, sx1 = w - 16, sy0 = top + 4, sy1 = bottom - fs * 1.6;
+    const X = (v) => sx0 + ((v - minX) / (maxX - minX || 1)) * (sx1 - sx0), Y = (v) => sy1 - ((v - minY) / (maxY - minY || 1)) * (sy1 - sy0);
+    ctx.save(); ctx.strokeStyle = muted; ctx.globalAlpha *= 0.35; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = Y(minY + ((maxY - minY) * i) / 4); ctx.beginPath(); ctx.moveTo(sx0, y); ctx.lineTo(sx1, y); ctx.stroke(); const x = X(minX + ((maxX - minX) * i) / 4); ctx.beginPath(); ctx.moveTo(x, sy0); ctx.lineTo(x, sy1); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = muted; ctx.font = font(false);
+    for (let i = 0; i <= 4; i++) { ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(String(+(minY + ((maxY - minY) * i) / 4).toFixed(2)), sx0 - 6, Y(minY + ((maxY - minY) * i) / 4)); ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(String(+(minX + ((maxX - minX) * i) / 4).toFixed(2)), X(minX + ((maxX - minX) * i) / 4), sy1 + 6); }
+    o.series.forEach((s, si) => { ctx.fillStyle = seriesColor(theme, s, si); s.values.forEach((v, i) => { ctx.beginPath(); ctx.arc(X(xs[i]), Y(v), Math.max(3, fs * 0.38), 0, Math.PI * 2); ctx.fill(); if (o.labels) dataLabel(v, X(xs[i]), Y(v) - fs * 0.5); }); });
+    ctx.strokeStyle = muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sx0, Y(0)); ctx.lineTo(sx1, Y(0)); ctx.moveTo(X(0), sy0); ctx.lineTo(X(0), sy1); ctx.stroke();
+    return;
+  }
   const stacked = o.kind === 'bar' && o.stacked && o.series.length > 1;
   const all = stacked
     ? o.categories.flatMap((_, i) => [o.series.reduce((a, s) => a + Math.max(0, s.values[i] || 0), 0), o.series.reduce((a, s) => a + Math.min(0, s.values[i] || 0), 0)])
@@ -202,7 +227,7 @@ function drawChart(ctx, o, env) {
   const maxV = niceMax(Math.max(0, ...all)), minV = Math.min(0, ...all) < 0 ? -niceMax(-Math.min(...all)) : 0;
   ctx.font = font(false);
   const labelW = Math.max(...[minV, maxV].map((v) => measure(ctx.font, String(v)))) + 8;
-  const px0 = labelW + 8, px1 = w - 12, py0 = top + 4, py1 = bottom - fs * 1.6;
+  const px0 = labelW + 8 + leftPad, px1 = w - 12, py0 = top + 4, py1 = bottom - fs * 1.6;
   const yOf = (v) => py1 - ((v - minV) / (maxV - minV || 1)) * (py1 - py0);
   const ticks = 4;
   ctx.save(); ctx.strokeStyle = muted; ctx.globalAlpha *= 0.35; ctx.lineWidth = 1;
@@ -219,11 +244,11 @@ function drawChart(ctx, o, env) {
       const posAcc = o.categories.map(() => 0), negAcc = o.categories.map(() => 0);
       o.series.forEach((sr, si) => { ctx.fillStyle = seriesColor(theme, sr, si); sr.values.forEach((v, i) => {
         const base = v >= 0 ? posAcc[i] : negAcc[i]; const ya = yOf(base), yb = yOf(base + v); if (v >= 0) posAcc[i] += v; else negAcc[i] += v;
-        ctx.fillRect(px0 + band * i + (band - gw) / 2, Math.min(ya, yb), Math.max(1, gw - 2), Math.abs(yb - ya)); }); });
+        ctx.fillRect(px0 + band * i + (band - gw) / 2, Math.min(ya, yb), Math.max(1, gw - 2), Math.abs(yb - ya)); if (o.labels && Math.abs(yb - ya) > fs) dataLabel(v, px0 + band * i + band / 2, (ya + yb) / 2, 'middle'); }); });
       ctx.strokeStyle = muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px0, yOf(0)); ctx.lineTo(px1, yOf(0)); ctx.stroke();
       return;
     }
-    o.series.forEach((s, si) => { ctx.fillStyle = seriesColor(theme, s, si); s.values.forEach((v, i) => { const x = px0 + band * i + (band - gw) / 2 + bw * si, y0 = yOf(0), y1 = yOf(v); ctx.fillRect(x, Math.min(y0, y1), Math.max(1, bw - 2), Math.abs(y1 - y0)); }); });
+    o.series.forEach((s, si) => { ctx.fillStyle = seriesColor(theme, s, si); s.values.forEach((v, i) => { const x = px0 + band * i + (band - gw) / 2 + bw * si, y0 = yOf(0), y1 = yOf(v); ctx.fillRect(x, Math.min(y0, y1), Math.max(1, bw - 2), Math.abs(y1 - y0)); if (o.labels) dataLabel(v, x + (bw - 2) / 2, (v >= 0 ? Math.min(y0, y1) - 2 : Math.max(y0, y1) + fs), 'bottom'); }); });
   } else {
     o.series.forEach((s, si) => {
       const col = seriesColor(theme, s, si); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3; ctx.lineJoin = 'round';
@@ -232,7 +257,7 @@ function drawChart(ctx, o, env) {
         ctx.lineTo(px0 + band * (s.values.length - 0.5), yOf(0)); ctx.lineTo(px0 + band * 0.5, yOf(0)); ctx.closePath(); ctx.fill(); ctx.restore();
       }
       ctx.beginPath(); s.values.forEach((v, i) => { const x = px0 + band * (i + 0.5), y = yOf(v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
-      s.values.forEach((v, i) => { ctx.beginPath(); ctx.arc(px0 + band * (i + 0.5), yOf(v), 4, 0, Math.PI * 2); ctx.fill(); });
+      s.values.forEach((v, i) => { ctx.beginPath(); ctx.arc(px0 + band * (i + 0.5), yOf(v), 4, 0, Math.PI * 2); ctx.fill(); if (o.labels) dataLabel(v, px0 + band * (i + 0.5), yOf(v) - 8); });
     });
   }
   ctx.strokeStyle = muted; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px0, yOf(0)); ctx.lineTo(px1, yOf(0)); ctx.stroke();
@@ -249,6 +274,10 @@ export function drawSlide(ctx, deck, slide, opts = {}) {
     if (opts.skip && opts.skip.has(o.id)) continue;
     if (opts.override && opts.override.has(o.id)) { drawObject(ctx, { ...o, ...opts.override.get(o.id) }, env); continue; }
     drawObject(ctx, o, env);
+  }
+  if (deck.master && (deck.master.showFooter || deck.master.showNumber)) {
+    const idx = opts.index !== undefined ? opts.index : deck.slides.findIndex((x) => x.id === slide.id);
+    for (const mo of masterObjects(deck, idx < 0 ? 0 : idx)) drawObject(ctx, mo, env);
   }
   ctx.restore();
 }

@@ -1,3 +1,4 @@
+import { friendlyError } from '../lib/friendlyError.js';
 import { useReducer, useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { createHistory, commit as hCommit, undo as hUndo, redo as hRedo, canUndo, canRedo } from '../model/history.js';
 import * as ops from '../model/ops.js';
@@ -59,7 +60,7 @@ export function useEditor(initialDeck) {
       lastSaved.current = d;
       if (Date.now() - lastVersionAt.current > 5 * 60 * 1000) { lastVersionAt.current = Date.now(); await saveVersion(d, 'Autosave'); }
       if (presentRef.current === d) { setSaveState('saved'); setSaveError(''); } else setSaveState('saving');
-    } catch (e) { setSaveState('error'); setSaveError(e && e.message ? e.message : 'Could not save'); }
+    } catch (e) { setSaveState('error'); setSaveError(friendlyError(e, 'Could not save')); }
   }, []);
   useEffect(() => {
     if (present === lastSaved.current) return undefined;
@@ -170,6 +171,7 @@ export function useEditor(initialDeck) {
       setSlideProps: (patch, id) => dispatch({ type: 'commit', deck: ops.updateSlide(presentRef.current, id || sid(), patch) }),
       setNotes: (id, notes) => dispatch({ type: 'commit', deck: ops.updateSlide(presentRef.current, id, { notes }), key: 'notes:' + id }),
       applyLayout: (layout) => dispatch({ type: 'commit', deck: ops.applyLayout(presentRef.current, sid(), layout) }),
+      setMaster: (patch) => dispatch({ type: 'commit', deck: ops.setMaster(presentRef.current, patch), key: 'master' }),
       setTheme: (id) => dispatch({ type: 'commit', deck: ops.setTheme(presentRef.current, id) }),
       setPalette: (key, val) => dispatch({ type: 'commit', deck: ops.setPaletteColor(presentRef.current, key, val), key: 'palette:' + key }),
       setThemePart: (p) => dispatch({ type: 'commit', deck: ops.setThemePart(presentRef.current, p) }),

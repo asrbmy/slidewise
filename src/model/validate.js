@@ -144,7 +144,7 @@ function vObject(o, p, ctx, depth) {
     out.tstyle = { headerRow: bool(t.headerRow, true), zebra: bool(t.zebra, true), headerFill: color(t.headerFill, p + '.tstyle.headerFill', '@accent1'), headerColor: color(t.headerColor, p + '.tstyle.headerColor', '#ffffff'), border: color(t.border, p + '.tstyle.border', '@muted'), fill: color(t.fill, p + '.tstyle.fill', '@surface'), color: color(t.color, p + '.tstyle.color', '@text'), size: num(t.size, p + '.tstyle.size', { min: 4, max: 300, def: 20 }), font: fontv(t.font, p + '.tstyle.font', '@body') };
     withVisual();
   } else if (type === 'chart') {
-    out.kind = oneOf(o.kind, CHART_KINDS, 'bar', p + '.kind'); out.title = str(o.title, p + '.title', 300); out.legend = bool(o.legend, true); out.stacked = bool(o.stacked, false); out.area = bool(o.area, false);
+    out.kind = oneOf(o.kind, CHART_KINDS, 'bar', p + '.kind'); out.title = str(o.title, p + '.title', 300); out.legend = bool(o.legend, true); out.stacked = bool(o.stacked, false); out.area = bool(o.area, false); out.labels = bool(o.labels, false); out.xTitle = str(o.xTitle, p + '.xTitle', 100, ''); out.yTitle = str(o.yTitle, p + '.yTitle', 100, '');
     if (!Array.isArray(o.categories) || !Array.isArray(o.series)) fail('Chart data missing', p);
     if (o.categories.length > 200 || o.series.length > 24 || o.categories.length * o.series.length > LIMITS.maxChartPoints) fail('Chart is too large', p);
     out.categories = o.categories.map((c, i) => str(c, `${p}.categories[${i}]`, 100));
@@ -191,6 +191,7 @@ export function validateDeck(raw, ctxIn) {
     size: { w: num(size.w, '$.size.w', { min: LIMITS.minSlideSize, max: LIMITS.maxSlideSize, def: 1280 }), h: num(size.h, '$.size.h', { min: LIMITS.minSlideSize, max: LIMITS.maxSlideSize, def: 720 }) },
     theme: vTheme(raw.theme, '$.theme'), assets: {}, slides: [],
   };
+  { const m = isObj(raw.master) ? raw.master : {}; out.master = { showFooter: bool(m.showFooter, false), footerText: str(m.footerText, '$.master.footerText', 200, ''), showNumber: bool(m.showNumber, false), hideOnFirst: bool(m.hideOnFirst, true) }; }
   if (!Array.isArray(raw.slides) || raw.slides.length === 0) fail('Deck has no slides', '$.slides');
   if (raw.slides.length > LIMITS.maxSlides) fail(`Too many slides (limit ${LIMITS.maxSlides})`, '$.slides');
   const slideIds = new Set();
@@ -201,7 +202,7 @@ export function validateDeck(raw, ctxIn) {
     let id = safeId(s.id); if (!id || slideIds.has(id)) id = uid('s'); slideIds.add(id);
     const tr = isObj(s.transition) ? s.transition : {};
     const bg = isObj(s.background) ? { color: color(s.background.color, p + '.background.color', '@bg') } : null;
-    return { id, layout: oneOf(s.layout, LAYOUTS, 'blank', p + '.layout'), hidden: bool(s.hidden), notes: str(s.notes, p + '.notes', 50000), background: bg, transition: { type: oneOf(tr.type, TRANSITIONS, 'none', p + '.transition.type'), duration: num(tr.duration, p + '.transition.duration', { min: 50, max: 5000, def: 500 }) }, objects: s.objects.map((o, j) => vObject(o, `${p}.objects[${j}]`, ctx, 0)) };
+    return { id, layout: oneOf(s.layout, LAYOUTS, 'blank', p + '.layout'), hidden: bool(s.hidden), notes: str(s.notes, p + '.notes', 50000), targetSec: Math.round(num(s.targetSec, p + '.targetSec', { min: 0, max: 3600, def: 0 })), background: bg, transition: { type: oneOf(tr.type, TRANSITIONS, 'none', p + '.transition.type'), duration: num(tr.duration, p + '.transition.duration', { min: 50, max: 5000, def: 500 }) }, objects: s.objects.map((o, j) => vObject(o, `${p}.objects[${j}]`, ctx, 0)) };
   });
   if (raw.assets !== undefined && !isObj(raw.assets)) fail('Assets must be an object', '$.assets');
   let total = 0;

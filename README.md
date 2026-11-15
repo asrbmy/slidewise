@@ -12,15 +12,17 @@ Everything in this list is exercised by the unit tests or the real-browser end-t
 **Editing**
 - 16:9, 4:3 or custom slide size; zoom and fit-to-window
 - Slide sorter: thumbnails, drag-reorder, add, duplicate, delete, hide
-- Objects: text, 7 shapes (rectangle, rounded rectangle, ellipse, triangle, arrow, line, star), images, tables, charts (bar, stacked bar, line, area line, pie, driven by an editable data table), merged table cells
+- Objects: text, 7 shapes (rectangle, rounded rectangle, ellipse, triangle, arrow, line, star), images, tables, charts (bar, stacked bar, line, area line, pie, scatter, with data labels and axis titles, driven by an editable data table), merged table cells
 - Select, multi-select, drag, resize, rotate, snapping with guides, align, distribute, group/ungroup, lock, z-order, copy/paste/duplicate, arrow-key nudge, undo/redo for all of it
 - Rich text: font, size, bold/italic/underline/strike, colour, highlight, alignment, bullets/numbers, line spacing, links, vertical alignment, shrink-to-fit
 - Fill (solid or two-colour gradient on shapes), border, shadow, opacity, corner radius; image crop and adjustments; alt text on objects
 - Layouts (title, title + content, two column, section, blank, caption); 8 themes that act as the slide master; custom palette
+- Slide master extras: a deck-wide footer and slide numbers (Theme tab), shown in the editor, presenting and every export (flattened into plain text boxes in PPTX). There is no full master-layout editor yet
 - Speaker notes, slide transitions, entrance animations with per-object order, find and replace
 
 **Presenting**
 - Fullscreen with keyboard, click and touch navigation, progress bar, black/white screen, laser pointer, pen
+- Rehearsal: set an optional target time per slide; the presenter view shows time on the current slide and turns red when you go over (targets are kept in the deck JSON/backup, not in PPTX)
 - Presenter view in a second window (current slide, next slide, notes, timer, remote control) using `BroadcastChannel` on the same browser. No server involved.
 
 **Documents**
@@ -127,6 +129,14 @@ Importing a PowerPoint file made elsewhere is best-effort: text, images, basic p
 are read. SmartArt, native charts, embedded video/audio, OLE objects, custom geometry, master/layout graphics,
 and animations are dropped. SVG and other non-raster media are rejected on purpose.
 
+## Reliability
+
+- A crash-recovery screen replaces a blank page if a screen fails to render (including a stale lazy-loaded chunk after an update).
+- When a new version is deployed, open tabs show a "new version available" prompt (service-worker update flow is tested end to end).
+- Closing the tab while a save is in flight or has failed shows the browser's "unsaved changes" warning.
+- Full, blocked or closing browser storage produces an actionable message instead of a raw error; if IndexedDB is unavailable the app keeps working in memory and says so.
+- Dependabot is configured for npm and GitHub Actions. See [SECURITY.md](SECURITY.md) to report a vulnerability and [CHANGELOG.md](CHANGELOG.md) for releases.
+
 ## Security model
 
 Imported files are treated as hostile:
@@ -159,8 +169,9 @@ app's own files for offline use. Clearing site data in your browser deletes your
 ## Testing
 
 - **Unit tests (Vitest):** data model and ops, undo/redo, validation and hostile input, storage and locking, text layout, rich text, transforms, presenter engine, PPTX export/import (including hostile zips).
-- **End-to-end (real Chrome, production build served under the sub-path `/my-repo/`):** 38 checks covering creating a deck, adding every object type, reorder, presenting, presenter view, every export format, reload persistence, backup and hostile-import rejection, PPTX/image import, password lock, offline load via the service worker, phone viewport, dark mode and reduced motion, with no console errors or CSP violations allowed.
+- **End-to-end (real Chrome, production build served under the sub-path `/my-repo/`):** 41 checks covering creating a deck, adding every object type, reorder, presenting, presenter view, every export format, reload persistence, backup and hostile-import rejection, PPTX/image import, password lock, offline load via the service worker, phone viewport, dark mode and reduced motion, with no console errors or CSP violations allowed.
 - **Accessibility:** axe-core (WCAG 2 A/AA + best practice) on home, editor, shortcuts dialog, presenter view, unlock dialog and dark home; serious/critical violations fail the run. 
+- **Service-worker update:** `e2e/sw-update.mjs` serves version A, deploys a changed version B, and checks the new worker takes over, the old cache is removed, the update prompt appears and the app still loads offline.
 - **Performance:** a 200-slide deck is imported, opened, navigated and presented in a real browser with time budgets (`e2e/perf.mjs`).
 
 ## Known limits

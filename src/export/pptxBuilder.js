@@ -1,3 +1,4 @@
+import { masterObjects } from '../model/master.js';
 import { mergeMap } from '../model/tableMerge.js';
 // Builds a PPTX (OOXML) package from a deck. Pure apart from the injected providers, so it can be unit tested without a canvas.
 // providers: { imageBytes(o) -> Promise<{bytes, ext}>, chartPng(o) -> Promise<Uint8Array>, textScale(o) -> number }
@@ -148,7 +149,7 @@ export async function buildPptx(deck, providers, onProgress = () => {}) {
     onProgress(`Building slide ${i + 1} of ${slides.length}…`);
     const s = slides[i]; const rels = new Rels(); ids = 1;
     rels.add(RT + 'slideLayout', '../slideLayouts/slideLayout1.xml');
-    const body = []; for (const o of s.objects) body.push(await objXml(o, rels));
+    const body = []; for (const o of [...s.objects, ...masterObjects(deck, deck.slides.findIndex((x) => x.id === s.id))]) body.push(await objXml(o, rels));
     const tr = s.transition && TRANS[s.transition.type] ? `<p:transition spd="med">${TRANS[s.transition.type]}</p:transition>` : '';
     zip.file(`ppt/slides/slide${i + 1}.xml`, HDR + `<p:sld ${NS}${s.hidden ? ' show="0"' : ''}><p:cSld>${bgXml(s)}<p:spTree>${GRP}${body.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${tr}</p:sld>`);
     if ((s.notes || '').trim()) {

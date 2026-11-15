@@ -153,3 +153,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } }
 @media print { .editor, .home { display: none; } }
+
+.target-time { display: inline-flex; gap: 6px; align-items: center; margin-left: 12px; font-size: 12px; }
+.target-time input { width: 70px; }
+.pv-slide-timer { font-variant-numeric: tabular-nums; margin-left: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); }
+.pv-slide-timer.over { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+.update-banner { position: fixed; z-index: 50; left: 50%; transform: translateX(-50%); bottom: 16px; max-width: calc(100vw - 32px); box-shadow: 0 4px 16px rgba(0,0,0,.25); }

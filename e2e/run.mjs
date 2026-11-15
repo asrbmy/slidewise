@@ -180,6 +180,8 @@ await t('slides: add, duplicate, hide, reorder (keyboard + drag and drop), delet
   eq((await order()).indexOf(cid), 0, 'content slide back at the start');
   await page.evaluate((id) => document.querySelector(`.sorter-item[data-slide-id="${id}"]`).click(), cid); await sleep(150);
   await page.type('#notes-box', NOTES); await waitSaved(page);
+  await page.evaluate(() => { const i = document.querySelector('[aria-label="Rehearsal target seconds"]'); i.focus(); i.select(); }); await page.keyboard.type('1'); await sleep(900); await waitSaved(page);
+  assert((await getDecks(page)).some((r) => r.deck && r.deck.slides.some((x) => x.targetSec === 1)), 'rehearsal target saved');
   const d = (await getDecks(page))[0].deck; assert(d.slides[0].notes === NOTES, 'notes saved: ' + d.slides[0].notes);
 });
 
@@ -260,6 +262,37 @@ await t('merge table cells: UI, painting, saved, and unmerge', async () => {
   await clickBtn('Unmerge'); await sleep(400); await waitSaved(page);
   assert(!(await merged()).includes(1), 'unmerge saved'); assert(before === await shot(), 'unmerged table paints like the original');
 });
+await t('slide master: footer text and slide numbers paint on slides and are saved', async () => {
+  await page.keyboard.press('Escape'); await sleep(100);
+  const prevIdx = await page.evaluate(() => [...document.querySelectorAll('.sorter-item')].findIndex((e) => e.getAttribute('aria-selected') === 'true')); const items = await page.$$('.sorter-item'); await page.evaluate((i) => document.querySelectorAll('.sorter-item')[i].click(), items.length - 1); await sleep(300);   // a later slide (first slide hides the footer by default)
+  const shot = () => page.evaluate(() => { const c = document.querySelector('.stage canvas'); return c.toDataURL().length + ':' + c.toDataURL().slice(-64); });
+  await page.evaluate(() => [...document.querySelectorAll('[role=tab], .tab, button')].find((b) => /^Theme$/.test(b.textContent.trim()))?.click()); await sleep(300);
+  const before = await shot();
+  await page.evaluate(() => [...document.querySelectorAll('.insp .check')].find((l) => l.textContent.includes('Show slide numbers')).querySelector('input').click()); await sleep(500);
+  assert(before !== await shot(), 'slide numbers change the painting');
+  await page.evaluate(() => { const i = document.querySelector('[aria-label="Footer text"]'); i.focus(); }); await page.keyboard.type('Acme Corp'); await page.evaluate(() => [...document.querySelectorAll('.insp .check')].find((l) => l.textContent.includes('Show footer')).querySelector('input').click());
+  await sleep(900); await waitSaved(page);
+  const m = (await getDecks(page)).find((r) => r.deck && r.deck.master && r.deck.master.showNumber); assert(m && m.deck.master.footerText === 'Acme Corp' && m.deck.master.showFooter, 'master saved: ' + JSON.stringify(m && m.deck.master));
+  await page.evaluate((i) => document.querySelectorAll('.sorter-item')[Math.max(0, i)].click(), prevIdx); await page.evaluate(() => [...document.querySelectorAll('[role=tab]')].find((x) => x.textContent.trim() === 'Format')?.click()); await sleep(300);
+});
+await t('update banner appears when a new version takes over, and can be dismissed', async () => {
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('slidewise:update')));
+  await page.waitForSelector('.update-banner'); assert(/new version/i.test(await page.$eval('.update-banner', (e) => e.textContent)), 'banner text');
+  await page.evaluate(() => [...document.querySelectorAll('.update-banner .btn')].find((b) => b.textContent === 'Later').click()); await sleep(200);
+  assert(!(await page.$('.update-banner')), 'banner dismissed');
+});
+await t('scatter chart, data labels and axis titles change the painting and are saved', async () => {
+  await page.keyboard.press('Escape'); await sleep(100);
+  const shot = () => page.evaluate(() => { const c = document.querySelector('.stage canvas'); return c.toDataURL().length + ':' + c.toDataURL().slice(-64); });
+  await menu(page, 'Insert', 'Scatter chart'); await sleep(500);
+  const s0 = await shot();
+  await page.evaluate(() => [...document.querySelectorAll('.insp .check')].find((l) => l.textContent.includes('data labels')).querySelector('input').click()); await sleep(400);
+  const s1 = await shot(); assert(s0 !== s1, 'data labels repaint');
+  await page.focus('[aria-label="Horizontal axis title"]'); await page.keyboard.type('Time'); await page.focus('[aria-label="Vertical axis title"]'); await page.keyboard.type('Speed'); await sleep(900); await waitSaved(page);
+  assert(s1 !== await shot(), 'axis titles repaint');
+  const kinds = await page.evaluate(() => new Promise((res) => { const q = indexedDB.open('slidewise'); q.onsuccess = () => { const g = q.result.transaction('decks').objectStore('decks').getAll(); g.onsuccess = () => res(g.result.flatMap((d) => (d.deck ? d.deck.slides : []).flatMap((s) => s.objects)).filter((o) => o.type === 'chart' && o.kind === 'scatter').map((o) => [o.labels, o.xTitle, o.yTitle].join('|'))); }; }));
+  assert(kinds.includes('true|Time|Speed'), 'saved: ' + kinds);
+});
 await t('context menu on right-click', async () => {
   await page.keyboard.press('Escape'); await sleep(100);
   const b = await page.evaluate(() => { const o = [...document.querySelectorAll('.overlay .obj')].find((x) => x.dataset.type === 'shape'); const r = o.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
@@ -303,11 +336,13 @@ await t('presenter view in a second window (BroadcastChannel): current, next, no
   await pv.waitForSelector('[data-testid=pv-notes]', { timeout: 10000 });
   const notes = await pv.$eval('[data-testid=pv-notes]', (e) => e.textContent); eq(notes, NOTES, 'notes shown');
   const t0 = await pv.$eval('[data-testid=pv-timer]', (e) => e.textContent); assert(/^\d\d:\d\d/.test(t0), 'timer ' + t0);
+  const st1 = await pv.waitForFunction(() => { const t = document.querySelector('[data-testid=pv-slide-timer]').textContent; return /\/ 00:01/.test(t) && t; }, { timeout: 4000 }).then((h) => h.jsonValue()).catch(async () => { throw new Error('slide timer lacks target: ' + (await pv.$eval('.pv-bar', (e) => e.innerText)).replace(/\n/g, ' | ') + ' | pos=' + (await pv.$eval('[data-testid=pv-pos]', (e) => e.textContent))); });
+  await pv.waitForFunction(() => /over target/.test(document.querySelector('[data-testid=pv-slide-timer]').textContent), { timeout: 6000 });
   const labels = await pv.$$eval('canvas[role=img]', (c) => c.map((x) => x.getAttribute('aria-label'))); assert(labels.some((l) => /Current slide/.test(l)) && labels.some((l) => /Next slide/.test(l)), 'current and next previews');
   await pv.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Next ▶')).click());
   await page.waitForFunction(() => Number(document.querySelector('[data-testid=present-canvas]').dataset.pos) === 1, { timeout: 5000 });
   await pv.waitForFunction(() => /Slide 2 of/.test(document.querySelector('[data-testid=pv-pos]').textContent), { timeout: 5000 });
-  axeReports.push(await runAxe(pv, 'presenter-view')); await pv.close();
+    axeReports.push(await runAxe(pv, 'presenter-view')); await pv.close();
   await page.keyboard.press('Escape'); await page.waitForFunction(() => location.hash.startsWith('#/deck/'));
 });
 

@@ -38,6 +38,8 @@ export default function Editor({ initialDeck, locked: initiallyLocked }) {
     calc(); const ro = new ResizeObserver(calc); ro.observe(el); return () => ro.disconnect();
   }, [deck.size.w, deck.size.h, showNotes]);
 
+  // warn before closing the tab while a save is in flight or has failed (changes would be lost)
+  useEffect(() => { if (ed.saveState === 'saved') return undefined; const on = (e) => { e.preventDefault(); e.returnValue = ''; }; window.addEventListener('beforeunload', on); return () => window.removeEventListener('beforeunload', on); }, [ed.saveState]);
   useEffect(() => { document.title = `${deck.name} — Slidewise`; return () => { document.title = 'Slidewise'; }; }, [deck.name]);
   useEffect(() => { if (editingId && !slide.objects.some((o) => o.id === editingId)) setEditingId(null); }, [slide, editingId]);
   useEffect(() => { setEditingId(null); }, [ed.slideId]);
@@ -221,6 +223,7 @@ export default function Editor({ initialDeck, locked: initiallyLocked }) {
           {showNotes && (
             <div className="notes">
               <label htmlFor="notes-box">Speaker notes — slide {idx + 1}</label>
+              <label className="target-time">Rehearsal target (seconds, 0 = none) <input type="number" min="0" max="3600" step="5" value={slide.targetSec || 0} aria-label="Rehearsal target seconds" onChange={(e) => api.setSlideProps({ targetSec: Math.max(0, Math.min(3600, Math.round(Number(e.target.value)) || 0)) }, slide.id)} /></label>
               <textarea id="notes-box" rows={3} value={slide.notes} placeholder="Notes only you will see in presenter view" onChange={(e) => api.setNotes(slide.id, e.target.value)} />
             </div>
           )}

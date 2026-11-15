@@ -4,7 +4,9 @@ import App from './App.jsx';
 import './styles/app.css';
 import { registerSW } from './sw-register.js';
 
-createRoot(document.getElementById('root')).render(<App />);
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+createRoot(document.getElementById('root')).render(<ErrorBoundary><App /></ErrorBoundary>);
 registerSW();
 
 // Ask the browser not to evict our IndexedDB data under storage pressure. Best-effort: browsers may

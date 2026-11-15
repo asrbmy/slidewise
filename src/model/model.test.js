@@ -256,3 +256,26 @@ describe('table merges', () => {
     const o = validateDeck(JSON.parse(JSON.stringify(d))).slides[0].objects.find((x) => x.type === 'table'); expect(o.merges).toEqual([{ r: 0, c: 0, rs: 3, cs: 3 }]);
   });
 });
+
+import { masterObjects, masterOf } from './master.js';
+describe('slide master footer and numbers', () => {
+  const d0 = () => ops.setMaster(createDeck(), { showFooter: true, footerText: 'Acme Corp', showNumber: true, hideOnFirst: true });
+  it('draws nothing by default and nothing on the first slide when hideOnFirst', () => {
+    expect(masterObjects(createDeck(), 3)).toEqual([]); expect(masterObjects(d0(), 0)).toEqual([]);
+  });
+  it('produces a footer and the 1-based slide number on later slides, inside the slide', () => {
+    const d = d0(); const o = masterObjects(d, 4); expect(o.map((x) => x.name)).toEqual(['Footer', 'Slide number']);
+    expect(o[1].tx.paras[0].runs[0].t).toBe('5');
+    for (const x of o) { expect(x.x).toBeGreaterThanOrEqual(0); expect(x.x + x.w).toBeLessThanOrEqual(d.size.w); expect(x.y + x.h).toBeLessThanOrEqual(d.size.h); }
+  });
+  it('can show on the first slide, and needs non-blank footer text', () => {
+    expect(masterObjects(ops.setMaster(d0(), { hideOnFirst: false }), 0)).toHaveLength(2);
+    expect(masterObjects(ops.setMaster(createDeck(), { showFooter: true, footerText: '   ' }), 2)).toEqual([]);
+  });
+  it('is sanitised by validateDeck (length cap, booleans) and survives a round trip', async () => {
+    const { validateDeck } = await import('./validate.js');
+    const v = validateDeck(JSON.parse(JSON.stringify(ops.setMaster(createDeck(), { footerText: 'Hello', showNumber: 'yes' }))));
+    expect(masterOf(v).footerText).toBe('Hello'); expect(v.master.showNumber).toBe(false);
+    const long = (() => { try { return masterOf(validateDeck(JSON.parse(JSON.stringify(ops.setMaster(createDeck(), { footerText: 'x'.repeat(500) }))))).footerText.length; } catch { return 'rejected'; } })(); expect(long === 'rejected' || long <= 200).toBe(true);
+  });
+});

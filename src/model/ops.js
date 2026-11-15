@@ -225,6 +225,7 @@ export function applyLayout(deck, slideId, layout) {
   });
 }
 export function setTheme(deck, themeId) { return touch({ ...deck, theme: cloneTheme(themeId) }); }
+export function setMaster(deck, patch) { return touch({ ...deck, master: { ...(deck.master || {}), ...patch } }); }
 export function setThemePart(deck, patch) { return touch({ ...deck, theme: { ...deck.theme, ...patch, id: 'custom', name: 'Custom' } }); }
 export function setPaletteColor(deck, key, value) { return setThemePart(deck, { colors: { ...deck.theme.colors, [key]: value } }); }
 export function resizeDeck(deck, size, scaleContent = true) {

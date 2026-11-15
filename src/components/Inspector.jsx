@@ -76,10 +76,14 @@ function ChartData({ o, api }) {
       <label className="field"><span className="field-label">Type</span><select value={o.kind} onChange={(e) => set({ kind: e.target.value, name: e.target.value + ' chart' })}>{CHART_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
       <label className="field"><span className="field-label">Title</span><input value={o.title} onChange={(e) => set({ title: e.target.value })} /></label>
       <label className="check"><input type="checkbox" checked={o.legend} onChange={(e) => set({ legend: e.target.checked })} /> Show legend</label>
+      {o.kind !== 'pie' && <label className="check"><input type="checkbox" checked={!!o.labels} onChange={(e) => set({ labels: e.target.checked })} /> Show data labels</label>}
+      {o.kind !== 'pie' && <><label className="field"><span className="field-label">Horizontal axis title</span><input aria-label="Horizontal axis title" maxLength={100} value={o.xTitle || ''} onChange={(e) => set({ xTitle: e.target.value })} /></label>
+        <label className="field"><span className="field-label">Vertical axis title</span><input aria-label="Vertical axis title" maxLength={100} value={o.yTitle || ''} onChange={(e) => set({ yTitle: e.target.value })} /></label></>}
+      {o.kind === 'scatter' && <p className="muted small">Scatter: type numbers in the Category column (they become the horizontal values); each series is a set of vertical values.</p>}
       {o.kind === 'bar' && <label className="check"><input type="checkbox" checked={!!o.stacked} onChange={(e) => set({ stacked: e.target.checked })} /> Stacked bars</label>}
       {o.kind === 'line' && <label className="check"><input type="checkbox" checked={!!o.area} onChange={(e) => set({ area: e.target.checked })} /> Fill area under lines</label>}
       <div className="table-scroll"><table className="data-table" aria-label="Chart data table">
-        <thead><tr><th scope="col">Category</th>{o.series.map((s, si) => <th scope="col" key={si}><input aria-label={`Series ${si + 1} name`} value={s.name} onChange={(e) => set({ series: o.series.map((x, i) => (i === si ? { ...x, name: e.target.value } : x)) })} /></th>)}</tr></thead>
+        <thead><tr><th scope="col">{o.kind === 'scatter' ? 'X value' : 'Category'}</th>{o.series.map((s, si) => <th scope="col" key={si}><input aria-label={`Series ${si + 1} name`} value={s.name} onChange={(e) => set({ series: o.series.map((x, i) => (i === si ? { ...x, name: e.target.value } : x)) })} /></th>)}</tr></thead>
         <tbody>{o.categories.map((c, ci) => <tr key={ci}><th scope="row"><input aria-label={`Category ${ci + 1}`} value={c} onChange={(e) => set({ categories: o.categories.map((x, i) => (i === ci ? e.target.value : x)) })} /></th>{o.series.map((s, si) => <td key={si}><input type="number" aria-label={`${s.name}, ${c}`} value={s.values[ci]} onChange={(e) => setCell(si, ci, e.target.value)} /></td>)}</tr>)}</tbody>
       </table></div>
       <div className="row">
@@ -223,6 +227,14 @@ export function ThemePanel({ deck, api }) {
   const labels = { bg: 'Background', surface: 'Surface', text: 'Text', muted: 'Muted text', accent1: 'Accent 1', accent2: 'Accent 2', accent3: 'Accent 3', accent4: 'Accent 4', accent5: 'Accent 5', accent6: 'Accent 6' };
   return (
     <div className="insp">
+      <Section title="Footer and slide numbers">
+        {(() => { const m = { showFooter: false, footerText: '', showNumber: false, hideOnFirst: true, ...(deck.master || {}) }; return (<>
+          <label className="check"><input type="checkbox" checked={m.showFooter} onChange={(e) => api.setMaster({ showFooter: e.target.checked })} /> Show footer</label>
+          <label className="field"><span className="field-label">Footer text</span><input aria-label="Footer text" maxLength={200} value={m.footerText} onChange={(e) => api.setMaster({ footerText: e.target.value })} /></label>
+          <label className="check"><input type="checkbox" checked={m.showNumber} onChange={(e) => api.setMaster({ showNumber: e.target.checked })} /> Show slide numbers</label>
+          <label className="check"><input type="checkbox" checked={m.hideOnFirst} onChange={(e) => api.setMaster({ hideOnFirst: e.target.checked })} /> Hide on the first slide</label>
+        </>); })()}
+      </Section>
       <Section title="Theme (slide master)">
         <div className="theme-grid">{THEMES.map((th) => (
           <button type="button" key={th.id} className={'theme-card' + (t.id === th.id ? ' on' : '')} aria-pressed={t.id === th.id} onClick={() => api.setTheme(th.id)} aria-label={`Theme ${th.name}`}>

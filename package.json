@@ -1,6 +1,6 @@
 {
   "name": "slidewise",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Slidewise: a presentation editor that runs entirely in your browser.",
   "license": "MIT",
@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "npm run build:e2e && SKIP_BUILD=1 node e2e/run.mjs && SKIP_BUILD=1 node e2e/perf.mjs",
+    "test:e2e": "npm run build:e2e && SKIP_BUILD=1 node e2e/run.mjs && SKIP_BUILD=1 node e2e/perf.mjs && node e2e/sw-update.mjs",
     "audit:prod": "npm audit --omit=dev",
     "build:e2e": "BASE_PATH=/my-repo/ vite build"
   },

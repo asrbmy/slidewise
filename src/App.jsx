@@ -28,9 +28,14 @@ export default function App() {
   const [mode, setMode] = useState('indexeddb');
   useEffect(() => { const on = () => setRoute(parseHash(window.location.hash)); window.addEventListener('hashchange', on); return () => window.removeEventListener('hashchange', on); }, []);
   useEffect(() => { storageMode().then(setMode); }, []);
+  const [updated, setUpdated] = useState(false);
+  useEffect(() => { const on = () => setUpdated(true); window.addEventListener('slidewise:update', on); return () => window.removeEventListener('slidewise:update', on); }, []);
   const fallback = <div className="center-msg" role="status">Loading…</div>;
-  if (route.name === 'editor') return <DeckLoader key={route.id} id={route.id}>{(deck, locked) => <Editor key={deck.id} initialDeck={deck} locked={locked} />}</DeckLoader>;
-  if (route.name === 'present') return <React.Suspense fallback={fallback}><DeckLoader key={route.id} id={route.id}>{(deck) => <Presenter deck={deck} />}</DeckLoader></React.Suspense>;
-  if (route.name === 'presenterView') return <React.Suspense fallback={fallback}><PresenterView id={route.id} /></React.Suspense>;
-  return <Home mode={mode} />;
+  const banner = updated ? <div className="banner ok update-banner" role="status">A new version of Slidewise is available. <button type="button" className="btn small" onClick={() => window.location.reload()}>Reload now</button> <button type="button" className="btn small" onClick={() => setUpdated(false)}>Later</button></div> : null;
+  let view;
+  if (route.name === 'editor') view = <DeckLoader key={route.id} id={route.id}>{(deck, locked) => <Editor key={deck.id} initialDeck={deck} locked={locked} />}</DeckLoader>;
+  else if (route.name === 'present') view = <React.Suspense fallback={fallback}><DeckLoader key={route.id} id={route.id}>{(deck) => <Presenter deck={deck} />}</DeckLoader></React.Suspense>;
+  else if (route.name === 'presenterView') view = <React.Suspense fallback={fallback}><PresenterView id={route.id} /></React.Suspense>;
+  else view = <Home mode={mode} />;
+  return <>{banner}{view}</>;
 }
