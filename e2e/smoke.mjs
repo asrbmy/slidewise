@@ -1,0 +1,16 @@
+import puppeteer from 'puppeteer-core';
+import { serve } from './server.mjs';
+import path from 'node:path';
+const dist = path.resolve('dist');
+const { server, port } = await serve(dist, '/my-repo/');
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] });
+const page = await browser.newPage(); await page.setViewport({ width: 1400, height: 900 });
+page.on('console', (m) => console.log('[console]', m.type(), m.text()));
+page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+await page.goto(`http://127.0.0.1:${port}/my-repo/`, { waitUntil: 'networkidle0' });
+await page.screenshot({ path: process.argv[2] || 'smoke-home.png' });
+await page.click('[data-template="pitch"]');
+await new Promise((r) => setTimeout(r, 1500));
+console.log('hash', await page.evaluate(() => location.hash));
+await page.screenshot({ path: process.argv[3] || 'smoke-editor.png' });
+await browser.close(); server.close();

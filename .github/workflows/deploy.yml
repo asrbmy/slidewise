@@ -1,0 +1,59 @@
+name: Test, build and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:prod
+      - run: npm test
+      - name: Install Chrome for end-to-end tests
+        uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Build under a repo subpath and run end-to-end tests
+        run: npm run test:e2e
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Build with the repository subpath as base
+        run: BASE_PATH="/${GITHUB_REPOSITORY#*/}/" npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
