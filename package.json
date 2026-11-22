@@ -15,7 +15,7 @@
     "build:e2e": "BASE_PATH=/my-repo/ vite build"
   },
   "dependencies": {
-    "dompurify": "^3.4.17",
+    "dompurify": "^3.4.18",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
     "react": "^18.3.1",
